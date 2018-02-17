@@ -50,6 +50,7 @@ void Database::databaseCreate( string input )
 {
 	databaseName = input;
 	tableNum = 0;
+
 }
 
 void Database::databaseAlter( string input )

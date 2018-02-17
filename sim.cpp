@@ -1,4 +1,16 @@
-
+// Program Information /////////////////////////////////////////////////////////
+/**
+  * @file sim.cpp
+  *
+  * @brief implements simulation functions    
+  * 
+  * @details Performs command line instructions to create and drop db/tbls
+  *
+  * @version 1.00 Carli DeCapito
+  *			 February 8, 2018 -- Initial Setup, Create/Drop DB Implementation
+  *
+  * @note None
+  */
 
 #include <iostream>
 #include <vector>
@@ -21,13 +33,15 @@ const int ERROR_DB_EXISTS = -1;
 const int ERROR_DB_NOT_EXISTS = -2;
 const int ERROR_TBL_EXISTS = -3;
 const int ERROR_TBL_NOT_EXISTS = -4;
+const int ERROR_INCORRECT_COMMAND = -5;
 
 void startSimulation();
 void removeSemiColon( string &input );
 bool startEvent( string input, vector< Database> &dbms );
 string getAction( string &input );
 string getContainer( string &input );
-bool databaseExists( vector<Database> dbms, Database dbInput );
+bool databaseExists( vector<Database> dbms, Database dbInput, int &indexReturn );
+void removeDatabase( vector< Database > &dbms, int index );
 void handleError( int errorType, string errorContainerName );
 
 
@@ -62,7 +76,6 @@ void startSimulation()
 	vector< Database > dbms;
 
 	bool simulationEnd = false;
-	cout << "-- Expected output" << endl;
 
 	do{
 		cout << "> ";
@@ -134,7 +147,11 @@ bool startEvent( string input, vector< Database> &dbms )
 {
 	bool exitProgram = false;
 	bool errorExists = false;
+
+	//bool tblExists;
+	int indexReturn;
 	int errorType;
+	string originalInput = input;
 	string errorContainerName;
 	string actionType = getAction( input );
 	string containerType;
@@ -149,29 +166,37 @@ bool startEvent( string input, vector< Database> &dbms )
 	}
 	else if( actionType.compare( CREATE ) == 0 ) 
 	{
+		//get string if we are modifying table or db
 		containerType = getContainer( input );
-		//cout << "TYPE " << input << endl;
+		//databse create
 		if( containerType == DATABASE_TYPE )
 		{
 			Database dbTemp;
 			//call Create db function
 			dbTemp.databaseCreate( input );
-			if( databaseExists( dbms, dbTemp ) == true )
+			//check that db does not exist already
+			bool dbExists = databaseExists( dbms, dbTemp, indexReturn );
+
+			if( dbExists )
 			{
+				//if it does then return error message
 				errorExists = true;
 				errorContainerName = dbTemp.databaseName;
 				errorType = ERROR_DB_EXISTS; 
 			}
 			else
 			{
-				cout << "--Database " << dbTemp.databaseName << " created." << endl;
+				//if it does not, return success message and push onto vector
+				cout << "-- Database " << dbTemp.databaseName << " created." << endl;
 				dbms.push_back( dbTemp );
 			}
 
 		}
+		//table create
 		else if( containerType == TABLE_TYPE )
 		{
 			//call create tbl function
+
 		}
 
 	}
@@ -180,7 +205,25 @@ bool startEvent( string input, vector< Database> &dbms )
 		containerType = getContainer( input );
 		if( containerType == DATABASE_TYPE )
 		{
-			//call drop db function
+			//create temp db to be dropped
+			Database dbTemp;
+			dbTemp.databaseCreate( input );
+
+			//check if database exists
+			if( databaseExists( dbms, dbTemp, indexReturn ) != true )
+			{
+				//if it does not then return error message
+				errorExists = true;
+				errorContainerName = dbTemp.databaseName;
+				errorType = ERROR_DB_NOT_EXISTS; 
+			}
+			else
+			{
+				//if it does, return success message and remove from indexReturn element
+				cout << "-- Database " << dbTemp.databaseName << " deleted." << endl;
+				removeDatabase( dbms, indexReturn );
+			}
+
 		}
 		else if( containerType == TABLE_TYPE )
 		{
@@ -204,6 +247,12 @@ bool startEvent( string input, vector< Database> &dbms )
 	else if( actionType.compare( EXIT ) == 0 )
 	{
 		exitProgram = true;
+	}
+	else
+	{
+		errorExists = true;
+		errorType = ERROR_INCORRECT_COMMAND;
+		errorContainerName = originalInput;
 	}
 
 	if( errorExists )
@@ -244,7 +293,7 @@ string getAction( string &input )
 	//take first word of input and set as action word
 	actionType = input.substr( 0, input.find(" "));
 	//erase word from original str to further parse
-	input.erase( 0, input.find(" ")+1);
+	input.erase( 0, input.find(" ") + 1 );
 
 	return actionType;	
 }
@@ -278,7 +327,7 @@ string getContainer( string &input )
 	//take first word of input and set as container word
 	actionType = input.substr( 0, input.find(" "));
 	//erase word from original str to further parse
-	input.erase( 0, input.find(" ")+1);
+	input.erase( 0, input.find(" ") + 1 );
 
 	return actionType;	
 }
@@ -307,17 +356,24 @@ string getContainer( string &input )
  *
  * @note None
  */
-bool databaseExists( vector<Database> dbms, Database dbInput )
+bool databaseExists( vector<Database> dbms, Database dbInput, int &indexReturn )
 {
 	int size = dbms.size();
-	for( int index = 0; index < size; index++ )
+	for( indexReturn = 0; indexReturn < size; indexReturn++ )
 	{
-		if( dbInput.databaseName == dbms[ index ].databaseName )
+		if( dbInput.databaseName == dbms[ indexReturn ].databaseName )
 		{
 			return true;
 		}
 	}
 	return false;
+}
+
+
+
+void removeDatabase( vector< Database > &dbms, int index )
+{
+	dbms.erase( dbms.begin() + index );
 }
 
 
@@ -347,12 +403,13 @@ void handleError( int errorType, string errorContainerName )
 {
 	if( errorType == ERROR_DB_EXISTS )
 	{
-		cout << "--!Failed to create database " << errorContainerName;
+		cout << "-- !Failed to create database " << errorContainerName;
 		cout << " because it already exists." << endl;
 	}
 	else if( errorType == ERROR_DB_NOT_EXISTS )
 	{
-
+		cout << "-- !Failed to delete database " << errorContainerName;
+		cout << " because it does not exist." << endl;
 	}
 	else if( errorType == ERROR_TBL_EXISTS )
 	{
@@ -362,4 +419,10 @@ void handleError( int errorType, string errorContainerName )
 	{
 
 	}
+	else if( errorType == ERROR_INCORRECT_COMMAND )
+	{
+		cout << "-- !Failed to complete command. "<< endl;
+		cout << "-- !Incorrect instruction: " << errorContainerName << endl;
+	}
 }
+
