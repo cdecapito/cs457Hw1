@@ -6,7 +6,10 @@
   * 
   * @details Performs command line instructions to create and drop db/tbls
   *
-  * @version 1.00 Carli DeCapito
+  * @version 1.01 Carli DeCapito
+  *			 February 10, 2018 - DB create/drop impementation, create directories
+  *
+  *			 1.00 Carli DeCapito
   *			 February 8, 2018 -- Initial Setup, Create/Drop DB Implementation
   *
   * @note None
@@ -15,6 +18,11 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <stdlib.h>
+#include <unistd.h>
 #include "Database.cpp"
 
 using namespace std;
@@ -35,16 +43,14 @@ const int ERROR_TBL_EXISTS = -3;
 const int ERROR_TBL_NOT_EXISTS = -4;
 const int ERROR_INCORRECT_COMMAND = -5;
 
-void startSimulation();
+void startSimulation( string currentWorkingDirectory );
 void removeSemiColon( string &input );
-bool startEvent( string input, vector< Database> &dbms );
+bool startEvent( string input, vector< Database> &dbms, string currentWorkingDirectory );
 string getAction( string &input );
 string getContainer( string &input );
 bool databaseExists( vector<Database> dbms, Database dbInput, int &indexReturn );
 void removeDatabase( vector< Database > &dbms, int index );
 void handleError( int errorType, string errorContainerName );
-
-
 
 
 /**
@@ -70,7 +76,7 @@ void handleError( int errorType, string errorContainerName );
  *
  * @note None
  */
-void startSimulation()
+void startSimulation( string currentWorkingDirectory )
 {
 	string input;
 	vector< Database > dbms;
@@ -83,7 +89,7 @@ void startSimulation()
 		//helper function to remove semi colon
 		removeSemiColon( input );
 		//call helper function to check if modifying db or tbl
-		simulationEnd = startEvent( input, dbms );
+		simulationEnd = startEvent( input, dbms, currentWorkingDirectory );
 
 	}while( simulationEnd == false );
 
@@ -115,7 +121,24 @@ void startSimulation()
  */
 void removeSemiColon( string &input )
 {
-	input.erase( input.find( ';' ) );
+	int strLen = input.length();
+	for( int index = 0; index < strLen; index++ )
+	{
+		if( input[ index ] == ';' && index != ( strLen - 1 ) )
+		{
+			handleError( ERROR_INCORRECT_COMMAND, input );
+		}
+		else if ( input[ index ] == ';' )
+		{
+			input.erase( input.find( ';' ) );
+		}
+	}
+
+	if( input == EXIT )
+	{
+		return;
+	}
+	
 }
 
 
@@ -143,7 +166,7 @@ void removeSemiColon( string &input )
  *
  * @note None
  */
-bool startEvent( string input, vector< Database> &dbms )
+bool startEvent( string input, vector< Database> &dbms, string currentWorkingDirectory )
 {
 	bool exitProgram = false;
 	bool errorExists = false;
@@ -189,14 +212,23 @@ bool startEvent( string input, vector< Database> &dbms )
 				//if it does not, return success message and push onto vector
 				cout << "-- Database " << dbTemp.databaseName << " created." << endl;
 				dbms.push_back( dbTemp );
-			}
 
+				//create directory
+				string dirName =  dbTemp.databaseName;
+				system( ("mkdir " + dirName).c_str() );
+			}
 		}
 		//table create
 		else if( containerType == TABLE_TYPE )
 		{
 			//call create tbl function
 
+		}
+		else
+		{
+			errorExists = true;
+			errorType = ERROR_INCORRECT_COMMAND;
+			errorContainerName = originalInput;	
 		}
 
 	}
@@ -222,12 +254,23 @@ bool startEvent( string input, vector< Database> &dbms )
 				//if it does, return success message and remove from indexReturn element
 				cout << "-- Database " << dbTemp.databaseName << " deleted." << endl;
 				removeDatabase( dbms, indexReturn );
+
+				//remove directory
+				string dirName =  dbTemp.databaseName;
+				system( ("rmdir " + dirName).c_str() );
 			}
+
 
 		}
 		else if( containerType == TABLE_TYPE )
 		{
 			//call drop tbl function
+		}
+		else
+		{
+			errorExists = true;
+			errorType = ERROR_INCORRECT_COMMAND;
+			errorContainerName = originalInput;	
 		}
 
 	}
