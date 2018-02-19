@@ -44,14 +44,13 @@ const int ERROR_TBL_NOT_EXISTS = -4;
 const int ERROR_INCORRECT_COMMAND = -5;
 
 void startSimulation( string currentWorkingDirectory );
-void removeSemiColon( string &input );
-bool startEvent( string input, vector< Database> &dbms, string currentWorkingDirectory );
-string getAction( string &input );
-string getContainer( string &input );
+bool removeSemiColon( string &input );
+bool startEvent( string input, vector< Database> &dbms, string currentWorkingDirectory, string &currentDatabase );
+string getNextWord( string &input );
 bool databaseExists( vector<Database> dbms, Database dbInput, int &indexReturn );
 void removeDatabase( vector< Database > &dbms, int index );
-void handleError( int errorType, string errorContainerName );
-
+void handleError( int errorType, string commandError, string errorContainerName );
+void convertToLC( string &input );
 
 /**
  * @brief startSimulation 
@@ -79,6 +78,7 @@ void handleError( int errorType, string errorContainerName );
 void startSimulation( string currentWorkingDirectory )
 {
 	string input;
+	string currentDatabase;
 	vector< Database > dbms;
 
 	bool simulationEnd = false;
@@ -87,9 +87,11 @@ void startSimulation( string currentWorkingDirectory )
 		cout << "> ";
 		getline( cin, input );
 		//helper function to remove semi colon
-		removeSemiColon( input );
-		//call helper function to check if modifying db or tbl
-		simulationEnd = startEvent( input, dbms, currentWorkingDirectory );
+		if( removeSemiColon( input ) )
+		{
+			//call helper function to check if modifying db or tbl
+			simulationEnd = startEvent( input, dbms, currentWorkingDirectory, currentDatabase );
+		}
 
 	}while( simulationEnd == false );
 
@@ -119,24 +121,42 @@ void startSimulation( string currentWorkingDirectory )
  *
  * @note None
  */
-void removeSemiColon( string &input )
+bool removeSemiColon( string &input )
 {
+	//CHECK IF SEMI EXISTS
+	int semiIndex = 0;
 	int strLen = input.length();
-	for( int index = 0; index < strLen; index++ )
+	bool semiExists = false;
+	//find where ; exists if it does exist
+	for ( int index = 0; index < strLen; index++ )
 	{
-		if( input[ index ] == ';' && index != ( strLen - 1 ) )
+		if( input[ index ] == ';' )
 		{
-			handleError( ERROR_INCORRECT_COMMAND, input );
-		}
-		else if ( input[ index ] == ';' )
-		{
-			input.erase( input.find( ';' ) );
+			semiExists = true;
+			semiIndex = index;
 		}
 	}
-
-	if( input == EXIT )
+	//if semi colon does not exist or is not at the end
+	if( semiExists == false || semiIndex != ( strLen - 1 ) )
 	{
-		return;
+		//if input is exit then we are fine
+		if( input == EXIT )
+		{
+			return true;
+		}
+		else
+		{
+			//otherwise incorrect syntax
+			handleError( ERROR_INCORRECT_COMMAND, "NULL", input );
+			return false;
+		}
+
+	}
+	else
+	{
+		//if semi colon is at end then erase it
+		input.erase( input.find( ';' ) );
+		return true;
 	}
 	
 }
@@ -166,7 +186,7 @@ void removeSemiColon( string &input )
  *
  * @note None
  */
-bool startEvent( string input, vector< Database> &dbms, string currentWorkingDirectory )
+bool startEvent( string input, vector< Database> &dbms, string currentWorkingDirectory, string &currentDatabase )
 {
 	bool exitProgram = false;
 	bool errorExists = false;
@@ -176,7 +196,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 	int errorType;
 	string originalInput = input;
 	string errorContainerName;
-	string actionType = getAction( input );
+	string actionType = getNextWord( input );
 	string containerType;
 
 	if( actionType.compare( SELECT )  == 0 )
@@ -185,18 +205,36 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 	}
 	else if( actionType.compare( USE ) == 0 )
 	{
-
+		
+		Database dbTemp;
+		dbTemp.databaseName = input;
+		bool dbExists = databaseExists( dbms, dbTemp, indexReturn );
+		
+		//check if database exists
+		if( dbExists )
+		{
+			//if it does then set current database as string
+			currentDatabase = dbTemp.databaseName;
+			dbTemp.databaseUse();
+		}
+		else
+		{
+			//if it does not then return error message
+			errorExists = true;
+			errorContainerName = dbTemp.databaseName;
+			errorType = ERROR_DB_NOT_EXISTS; 
+		}
 	}
 	else if( actionType.compare( CREATE ) == 0 ) 
 	{
 		//get string if we are modifying table or db
-		containerType = getContainer( input );
+		containerType = getNextWord( input );
 		//databse create
 		if( containerType == DATABASE_TYPE )
 		{
 			Database dbTemp;
 			//call Create db function
-			dbTemp.databaseCreate( input );
+			dbTemp.databaseName = input;
 			//check that db does not exist already
 			bool dbExists = databaseExists( dbms, dbTemp, indexReturn );
 
@@ -210,18 +248,40 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 			else
 			{
 				//if it does not, return success message and push onto vector
-				cout << "-- Database " << dbTemp.databaseName << " created." << endl;
 				dbms.push_back( dbTemp );
 
 				//create directory
-				string dirName =  dbTemp.databaseName;
-				system( ("mkdir " + dirName).c_str() );
+				dbTemp.databaseCreate();
 			}
 		}
 		//table create
 		else if( containerType == TABLE_TYPE )
 		{
+			
 			//call create tbl function
+			Database dbTemp;
+			dbTemp.databaseName = currentDatabase;
+			//get indexReturn of database
+			databaseExists( dbms, dbTemp, indexReturn );
+			
+			//get table name
+			Table tblTemp;
+			tblTemp.tableName = getNextWord( input );
+
+			//check that table exists
+			if( !(dbms[ indexReturn ].tableExists( tblTemp.tableName )) )
+			{
+				//if it doesnt then push table onto database
+				dbms[ indexReturn ].databaseTable.push_back( tblTemp );
+				tblTemp.tableCreate( currentWorkingDirectory, currentDatabase, tblTemp.tableName, input );	
+			}
+			else
+			{
+				//if it does than handle error
+			 	errorExists = true;
+			 	errorType = ERROR_TBL_EXISTS;
+			 	errorContainerName = tblTemp.tableName;	
+			}
 
 		}
 		else
@@ -234,12 +294,12 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 	}
 	else if( actionType.compare( DROP ) == 0 )
 	{
-		containerType = getContainer( input );
+		containerType = getNextWord( input );
 		if( containerType == DATABASE_TYPE )
 		{
 			//create temp db to be dropped
 			Database dbTemp;
-			dbTemp.databaseCreate( input );
+			dbTemp.databaseName = input;
 
 			//check if database exists
 			if( databaseExists( dbms, dbTemp, indexReturn ) != true )
@@ -252,12 +312,10 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 			else
 			{
 				//if it does, return success message and remove from indexReturn element
-				cout << "-- Database " << dbTemp.databaseName << " deleted." << endl;
 				removeDatabase( dbms, indexReturn );
 
 				//remove directory
-				string dirName =  dbTemp.databaseName;
-				system( ("rmdir " + dirName).c_str() );
+				dbTemp.databaseDrop();
 			}
 
 
@@ -276,7 +334,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 	}
 	else if( actionType.compare( ALTER ) == 0 ) 
 	{
-		containerType = getContainer( input );
+		containerType = getNextWord( input );
 		if( containerType == DATABASE_TYPE )
 		{
 			//call alter db function
@@ -300,7 +358,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 
 	if( errorExists )
 	{
-		handleError( errorType, errorContainerName );
+		handleError( errorType, actionType, errorContainerName );
 	}
 
 	return exitProgram;
@@ -308,7 +366,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 
 
 /**
- * @brief getAction
+ * @brief getNextWord
  *
  * @details determines what action is: create, drop, use, select, alter
  *          
@@ -329,7 +387,8 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
  *
  * @note None
  */
-string getAction( string &input )
+ /*
+string getNextWord( string &input )
 {
 
 	string actionType;
@@ -340,40 +399,8 @@ string getAction( string &input )
 
 	return actionType;	
 }
+*/
 
-
-/**
- * @brief getContainer
- *
- * @details determines whether functionality is performed on DB or TBL
- *          
- * @pre input exists
- *
- * @post returns string of Database or Table
- *
- * @par Algorithm 
- *      Use string find and erase functions
- *      
- * @exception None
- *
- * @param [in] none
- *
- * @param [out] input provides string of command from terminal
- *
- * @return string
- *
- * @note None
- */
-string getContainer( string &input )
-{
-	string actionType;
-	//take first word of input and set as container word
-	actionType = input.substr( 0, input.find(" "));
-	//erase word from original str to further parse
-	input.erase( 0, input.find(" ") + 1 );
-
-	return actionType;	
-}
 
 
 
@@ -442,30 +469,48 @@ void removeDatabase( vector< Database > &dbms, int index )
  *
  * @note None
  */
-void handleError( int errorType, string errorContainerName )
+void handleError( int errorType, string commandError, string errorContainerName )
 {
+
+	//convert to lowercase for use
+	convertToLC( commandError );
+
+	// if problem is that databse does exist (used for create db )
 	if( errorType == ERROR_DB_EXISTS )
 	{
-		cout << "-- !Failed to create database " << errorContainerName;
+		cout << "-- !Failed to " << commandError << " database " << errorContainerName;
 		cout << " because it already exists." << endl;
 	}
+	//if problem is that database does not exist ( used for use, drop)
 	else if( errorType == ERROR_DB_NOT_EXISTS )
 	{
-		cout << "-- !Failed to delete database " << errorContainerName;
+		cout << "-- !Failed to " << commandError << " database " << errorContainerName;
 		cout << " because it does not exist." << endl;
 	}
+	//if problem is that table exists ( used for create table)
 	else if( errorType == ERROR_TBL_EXISTS )
 	{
 
 	}
+	//if problem is that table does not exist( used for alter, select, drop )
 	else if( errorType == ERROR_TBL_NOT_EXISTS )
 	{
 
 	}
+	//if problem is that an unrecognized error occurs
 	else if( errorType == ERROR_INCORRECT_COMMAND )
 	{
 		cout << "-- !Failed to complete command. "<< endl;
 		cout << "-- !Incorrect instruction: " << errorContainerName << endl;
+	}
+}
+
+void convertToLC( string &input )
+{
+	int size = input.size();
+	for( int index = 0; index < size; index++ )
+	{
+		input[ index ] = tolower( input[ index ] );
 	}
 }
 

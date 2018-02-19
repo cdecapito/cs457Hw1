@@ -17,11 +17,11 @@ class Database{
 
 		Database();
 		~Database();
-		void databaseDrop( string input );
-		void databaseCreate( string input );
+		void databaseDrop();
+		void databaseCreate();
 		void databaseAlter( string input );
-		void databaseUse( string input );
-		bool databaseExists( string input );
+		void databaseUse();
+		bool tableExists( string tblName );
 };
 
 #endif

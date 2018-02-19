@@ -1,6 +1,11 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <stdlib.h>
+#include <unistd.h>
 #include "Database.h"
 
 
@@ -19,19 +24,20 @@ Database::~Database()
 
 }
 
-void Database::databaseDrop( string input )
+void Database::databaseDrop()
 {
-
+	cout << "-- Database " << databaseName << " deleted." << endl;
+	system( ( "rmdir " + databaseName ).c_str() );
 }
 
 /**
  * @brief databaseCreate
  *
- * @details creates new database
+ * @details creates new database directory
  *          
  * @pre input exists
  *
- * @post database is created and initalized
+ * @post database DIRECTORY is created and initalized
  *
  * @par Algorithm 
  *      
@@ -46,11 +52,10 @@ void Database::databaseDrop( string input )
  *
  * @note None
  */
-void Database::databaseCreate( string input )
+void Database::databaseCreate()
 {
-	databaseName = input;
-	tableNum = 0;
-
+	cout << "-- Database " << databaseName << " created." << endl;
+	system( ( "mkdir " + databaseName ).c_str() );
 }
 
 void Database::databaseAlter( string input )
@@ -58,9 +63,23 @@ void Database::databaseAlter( string input )
 
 }
 
-void Database::databaseUse( string input )
+void Database::databaseUse()
 {
+	cout << "-- Using Database " << databaseName;
+	cout << "." << endl;
+}
 
+bool Database::tableExists( string tblName )
+{
+	int tblSize = databaseTable.size();
+	for( int index = 0; index < tblSize; index++ )
+	{
+		if( databaseTable[ index ].tableName == tblName )
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 
