@@ -191,6 +191,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 {
 	bool exitProgram = false;
 	bool errorExists = false;
+	bool attrError = false;
 
 	//bool tblExists;
 	int dbReturn;
@@ -203,7 +204,28 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 
 	if( actionType.compare( SELECT )  == 0 )
 	{
+		Database dbTemp;
+		dbTemp.databaseName = currentDatabase;
+		databaseExists( dbms, dbTemp, dbReturn );
 
+		//get 
+		string temp = getNextWord( input );
+		temp = getNextWord( input );
+
+
+		Table tblTemp;
+		tblTemp.tableName = input;
+
+		if( !(dbms[ dbReturn ].tableExists( tblTemp.tableName, tblReturn )) )
+		{
+			errorExists = true;
+			errorType = ERROR_TBL_NOT_EXISTS;
+			errorContainerName = tblTemp.tableName;		
+		}
+		else
+		{
+			tblTemp.tableSelect( currentWorkingDirectory, currentDatabase );
+		}
 	}
 	else if( actionType.compare( USE ) == 0 )
 	{
@@ -274,7 +296,6 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 			if( !(dbms[ dbReturn ].tableExists( tblTemp.tableName, tblReturn )) )
 			{
 				//check that table attributes are not the same
-				bool attrError = false;
 				tblTemp.tableCreate( currentWorkingDirectory, currentDatabase, tblTemp.tableName, input, attrError );
 				if( !attrError  )
 				{
@@ -365,13 +386,31 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 	else if( actionType.compare( ALTER ) == 0 ) 
 	{
 		containerType = getNextWord( input );
-		if( containerType == DATABASE_TYPE )
-		{
-			//call alter db function
-		}
-		else if( containerType == TABLE_TYPE )
+		if( containerType == TABLE_TYPE )
 		{
 			//call alter tbl function
+			Database dbTemp;
+			dbTemp.databaseName = currentDatabase;
+			databaseExists( dbms, dbTemp, dbReturn );
+
+			Table tblTemp;
+			tblTemp.tableName = getNextWord( input );
+
+			//check if table exists
+			if( !(dbms[ dbReturn ].tableExists( tblTemp.tableName, tblReturn )) )
+			{
+				//if it doesnt exist then return error
+				errorExists = true;
+				errorType = ERROR_TBL_NOT_EXISTS;
+				errorContainerName = tblTemp.tableName;
+			}
+			else
+			{
+				//remove table/file
+				tblTemp.tableAlter( currentWorkingDirectory, currentDatabase, input, attrError );
+			}
+
+
 		}
 
 	}
@@ -394,42 +433,6 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 	return exitProgram;
 }
 
-
-/**
- * @brief getNextWord
- *
- * @details determines what action is: create, drop, use, select, alter
- *          
- * @pre input exists
- *
- * @post returns string depending on action
- *
- * @par Algorithm 
- *      use first word to determine action
- *      
- * @exception None
- *
- * @param [in] none
- *
- * @param [out] input provides input command from terminal
- *
- * @return string
- *
- * @note None
- */
- /*
-string getNextWord( string &input )
-{
-
-	string actionType;
-	//take first word of input and set as action word
-	actionType = input.substr( 0, input.find(" "));
-	//erase word from original str to further parse
-	input.erase( 0, input.find(" ") + 1 );
-
-	return actionType;	
-}
-*/
 
 
 
@@ -507,6 +510,10 @@ void removeTable( vector< Database > &dbms, int dbReturn, int tblReturn )
 void handleError( int errorType, string commandError, string errorContainerName )
 {
 
+	if( commandError == "SELECT" )
+	{
+		commandError = "query";
+	}
 	//convert to lowercase for use
 	convertToLC( commandError );
 
