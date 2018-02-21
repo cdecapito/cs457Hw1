@@ -13,7 +13,6 @@ using namespace std;
 #ifndef TABLE_CPP
 #define TABLE_CPP
 
-
 int getCommaCount( string str )
 {
 	int length = str.length();
@@ -40,6 +39,30 @@ string getNextWord( string &input )
 	return actionType;	
 }
 
+void removeLeadingWS( string &input )
+{
+	int index = 0;
+	while( input[ index ] == ' ' )
+	{ 
+		index++;
+	}
+
+	input.erase( 0, index );
+}
+
+bool attributeNameExists( vector< Attribute > attributeTable, Attribute attr )
+{
+	int size = attributeTable.size();
+	for( int index = 0; index < size; index++ )
+	{
+		if( attributeTable[ index ].attributeName == attr.attributeName )
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 
 Table::Table()
 {
@@ -50,7 +73,7 @@ Table::~Table()
 
 }
 
-void Table::tableCreate( string currentWorkingDirectory, string currentDatabase, string tblName, string input )
+void Table::tableCreate( string currentWorkingDirectory, string currentDatabase, string tblName, string input, bool &errorCode )
 {
 	vector< Attribute> tblAttributes;
 	Attribute attr;
@@ -63,7 +86,6 @@ void Table::tableCreate( string currentWorkingDirectory, string currentDatabase,
 	ofstream fout( ( currentWorkingDirectory + filePath ).c_str() );
 
 	//parse input str
-	/*
 		//remove beginning and end ()'s
 		//get first open paren
 	input.erase( 0, input.find( "(" ) + 1 );
@@ -73,19 +95,56 @@ void Table::tableCreate( string currentWorkingDirectory, string currentDatabase,
 
 	for( int index = 0; index < commaCount; index++ )
 	{
+		//remove beginning parameter
 		temp = input.substr( 0, input.find( "," ));
 		input.erase( 0, input.find(",") + 1 );
+		//remove leading white space
+		removeLeadingWS( temp );
+		//parse, get next two words
 		attr.attributeName = getNextWord( temp );
 		attr.attributeType = getNextWord( temp );
+
+		//check that variable name does not already exist
+		if( attributeNameExists( tblAttributes, attr ) )
+		{
+			errorCode = true;
+			cout << "-- !Failed to create table " << tblName << " because there are multiple ";
+			cout << attr.attributeName << " variable's." << endl;
+			system( ( "rm " +  filePath ).c_str() ) ;
+			return;
+		}
+
+		//push attribute onto file
+		tblAttributes.push_back( attr );
+
+		//output to file
 		fout << attr.attributeName << " ";
 		fout << attr.attributeType << endl;
 	}
 	
+	//remove leading WS from input
+	removeLeadingWS( input );
+	//parse next two words
 	attr.attributeName = getNextWord( input );
-	attr.attributeType = getNextWord( input );
+	//type is remaining string
+	attr.attributeType = input;
+	if( attributeNameExists( tblAttributes, attr ) )
+	{
+		errorCode = true;
+		cout << "-- !Failed to create table " << tblName << " because there are multiple ";
+		cout << attr.attributeName << " variable's." << endl;
+		system( ( "rm " +  currentDatabase + "/" + tblName ).c_str() ) ;
+		return;
+	}
+
+	//push onto vecotr
+	tblAttributes.push_back( attr );
+	
+	//output to file
 	fout << attr.attributeName << " ";
 	fout << attr.attributeType << endl;
-	*/
+
+	cout << "-- Table " << tblName << " created." << endl;
 }
 
 

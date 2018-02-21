@@ -271,9 +271,14 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 			//check that table exists
 			if( !(dbms[ indexReturn ].tableExists( tblTemp.tableName )) )
 			{
-				//if it doesnt then push table onto database
-				dbms[ indexReturn ].databaseTable.push_back( tblTemp );
-				tblTemp.tableCreate( currentWorkingDirectory, currentDatabase, tblTemp.tableName, input );	
+				//check that table attributes are not the same
+				bool attrError = false;
+				tblTemp.tableCreate( currentWorkingDirectory, currentDatabase, tblTemp.tableName, input, attrError );
+				if( !attrError  )
+				{
+					//if it doesnt then push table onto database	
+					dbms[ indexReturn ].databaseTable.push_back( tblTemp );
+				}
 			}
 			else
 			{
@@ -490,12 +495,14 @@ void handleError( int errorType, string commandError, string errorContainerName 
 	//if problem is that table exists ( used for create table)
 	else if( errorType == ERROR_TBL_EXISTS )
 	{
-
+		cout << "-- !Failed to " << commandError << " table " << errorContainerName;
+		cout << " because it already exists." << endl;
 	}
 	//if problem is that table does not exist( used for alter, select, drop )
 	else if( errorType == ERROR_TBL_NOT_EXISTS )
 	{
-
+		cout << "-- !Failed to " << commandError << " table " << errorContainerName;
+		cout << " because it does not exist." << endl;
 	}
 	//if problem is that an unrecognized error occurs
 	else if( errorType == ERROR_INCORRECT_COMMAND )
