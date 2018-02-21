@@ -47,8 +47,9 @@ void startSimulation( string currentWorkingDirectory );
 bool removeSemiColon( string &input );
 bool startEvent( string input, vector< Database> &dbms, string currentWorkingDirectory, string &currentDatabase );
 string getNextWord( string &input );
-bool databaseExists( vector<Database> dbms, Database dbInput, int &indexReturn );
+bool databaseExists( vector<Database> dbms, Database dbInput, int &dbReturn );
 void removeDatabase( vector< Database > &dbms, int index );
+void removeTable( vector< Database > &dbms, int dbReturn, int tblReturn );
 void handleError( int errorType, string commandError, string errorContainerName );
 void convertToLC( string &input );
 
@@ -192,7 +193,8 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 	bool errorExists = false;
 
 	//bool tblExists;
-	int indexReturn;
+	int dbReturn;
+	int tblReturn;
 	int errorType;
 	string originalInput = input;
 	string errorContainerName;
@@ -208,7 +210,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 		
 		Database dbTemp;
 		dbTemp.databaseName = input;
-		bool dbExists = databaseExists( dbms, dbTemp, indexReturn );
+		bool dbExists = databaseExists( dbms, dbTemp, dbReturn );
 		
 		//check if database exists
 		if( dbExists )
@@ -236,7 +238,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 			//call Create db function
 			dbTemp.databaseName = input;
 			//check that db does not exist already
-			bool dbExists = databaseExists( dbms, dbTemp, indexReturn );
+			bool dbExists = databaseExists( dbms, dbTemp, dbReturn );
 
 			if( dbExists )
 			{
@@ -261,15 +263,15 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 			//call create tbl function
 			Database dbTemp;
 			dbTemp.databaseName = currentDatabase;
-			//get indexReturn of database
-			databaseExists( dbms, dbTemp, indexReturn );
+			//get dbReturn of database
+			databaseExists( dbms, dbTemp, dbReturn );
 			
 			//get table name
 			Table tblTemp;
 			tblTemp.tableName = getNextWord( input );
 
 			//check that table exists
-			if( !(dbms[ indexReturn ].tableExists( tblTemp.tableName )) )
+			if( !(dbms[ dbReturn ].tableExists( tblTemp.tableName, tblReturn )) )
 			{
 				//check that table attributes are not the same
 				bool attrError = false;
@@ -277,7 +279,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 				if( !attrError  )
 				{
 					//if it doesnt then push table onto database	
-					dbms[ indexReturn ].databaseTable.push_back( tblTemp );
+					dbms[ dbReturn ].databaseTable.push_back( tblTemp );
 				}
 			}
 			else
@@ -307,7 +309,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 			dbTemp.databaseName = input;
 
 			//check if database exists
-			if( databaseExists( dbms, dbTemp, indexReturn ) != true )
+			if( databaseExists( dbms, dbTemp, dbReturn ) != true )
 			{
 				//if it does not then return error message
 				errorExists = true;
@@ -316,8 +318,8 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 			}
 			else
 			{
-				//if it does, return success message and remove from indexReturn element
-				removeDatabase( dbms, indexReturn );
+				//if it does, return success message and remove from dbReturn element
+				removeDatabase( dbms, dbReturn );
 
 				//remove directory
 				dbTemp.databaseDrop();
@@ -328,6 +330,29 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 		else if( containerType == TABLE_TYPE )
 		{
 			//call drop tbl function
+			Database dbTemp;
+			dbTemp.databaseName = currentDatabase;
+			databaseExists( dbms, dbTemp, dbReturn );
+
+			Table tblTemp;
+			tblTemp.tableName = getNextWord( input );
+
+			//check if table exists
+			if( !(dbms[ dbReturn ].tableExists( tblTemp.tableName, tblReturn )) )
+			{
+				//if it doesnt exist then return error
+				errorExists = true;
+				errorType = ERROR_TBL_NOT_EXISTS;
+				errorContainerName = tblTemp.tableName;
+			}
+			else
+			{
+				//table exists and remove from database
+				removeTable( dbms, dbReturn, tblReturn );
+
+				//remove table/file
+				tblTemp.tableDrop( currentDatabase );
+			}
 		}
 		else
 		{
@@ -431,12 +456,12 @@ string getNextWord( string &input )
  *
  * @note None
  */
-bool databaseExists( vector<Database> dbms, Database dbInput, int &indexReturn )
+bool databaseExists( vector<Database> dbms, Database dbInput, int &dbReturn )
 {
 	int size = dbms.size();
-	for( indexReturn = 0; indexReturn < size; indexReturn++ )
+	for( dbReturn = 0; dbReturn < size; dbReturn++ )
 	{
-		if( dbInput.databaseName == dbms[ indexReturn ].databaseName )
+		if( dbInput.databaseName == dbms[ dbReturn ].databaseName )
 		{
 			return true;
 		}
@@ -451,6 +476,11 @@ void removeDatabase( vector< Database > &dbms, int index )
 	dbms.erase( dbms.begin() + index );
 }
 
+
+void removeTable( vector< Database > &dbms, int dbReturn, int tblReturn )
+{
+	dbms[ dbReturn ].databaseTable.erase( dbms[ dbReturn ].databaseTable.begin() + tblReturn );
+}
 
 /**
  * @brief handleError

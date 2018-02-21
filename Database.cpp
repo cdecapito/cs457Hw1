@@ -69,13 +69,14 @@ void Database::databaseUse()
 	cout << "." << endl;
 }
 
-bool Database::tableExists( string tblName )
+bool Database::tableExists( string tblName, int &tblReturn )
 {
 	int tblSize = databaseTable.size();
 	for( int index = 0; index < tblSize; index++ )
 	{
 		if( databaseTable[ index ].tableName == tblName )
 		{
+			tblReturn = index;
 			return true;
 		}
 	}

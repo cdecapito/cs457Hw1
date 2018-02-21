@@ -19,7 +19,7 @@ class Table{
 		Table();
 		~Table();
 		void tableCreate( string currentWorkingDirectory, string currentDatabase, string tblName, string input, bool &errorCode );
-		void tableDrop( string input );
+		void tableDrop( string dbName );
 		void tableAlter( string input );
 		void tableSelect( string input );
 };

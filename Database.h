@@ -21,7 +21,7 @@ class Database{
 		void databaseCreate();
 		void databaseAlter( string input );
 		void databaseUse();
-		bool tableExists( string tblName );
+		bool tableExists( string tblName, int &tblReturn );
 };
 
 #endif

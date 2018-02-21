@@ -149,10 +149,12 @@ void Table::tableCreate( string currentWorkingDirectory, string currentDatabase,
 
 
 
-void Table::tableDrop( string input )
+void Table::tableDrop( string dbName )
 {
-
+	system( ( "rm " +  dbName + "/" + tableName ).c_str() ) ;
+	cout << "-- Table " << tableName << " deleted." << endl;
 }
+
 void Table::tableAlter( string input )
 {
 
