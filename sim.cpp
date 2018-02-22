@@ -6,7 +6,7 @@
   * 
   * @details Performs command line instructions to create and drop db/tbls
   *
-  * @version 1.01 Carli DeCapito
+  * @version 1.01 Carli DeCapito, Sanya Gupta, Eugene Nelson
   *			 February 10, 2018 - DB create/drop impementation, create directories
   *
   *			 1.00 Carli DeCapito
@@ -17,6 +17,9 @@
 
 #include <iostream>
 #include <vector>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
 #include <string>
 #include <cstdlib>
 #include <cstring>
@@ -53,6 +56,36 @@ void removeTable( vector< Database > &dbms, int dbReturn, int tblReturn );
 void handleError( int errorType, string commandError, string errorContainerName );
 void convertToLC( string &input );
 
+
+/**
+ * @brief read_Directory method
+ *
+ * @details reads contents of a directory into a vector
+ *
+ * @param [in] string &name
+ *             
+ * @param [in] vector <string &v>
+ *
+ * @return bool
+ *
+ * @note Code from stack overflow
+ */
+bool read_directory(const std::string& name, vector< string >& v)
+{
+	struct stat buffer;
+	if( !( stat( name.c_str(), &buffer ) == 0 ) )
+		return false;
+
+    DIR* dirp = opendir(name.c_str());
+    struct dirent * dp;
+    while ((dp = readdir(dirp)) != NULL) {
+        v.push_back(dp->d_name);
+    }
+    closedir(dirp);
+
+    return true;
+}
+
 /**
  * @brief startSimulation 
  *
@@ -78,9 +111,61 @@ void convertToLC( string &input );
  */
 void startSimulation( string currentWorkingDirectory )
 {
+	currentWorkingDirectory += "/DatabaseSystem";
+
+	// Check if the database system directory exists
+	struct stat buffer;
+	if( !( stat( currentWorkingDirectory.c_str(), &buffer ) == 0 ) )
+	{
+		// if not, create it.
+		system( ( "mkdir " + currentWorkingDirectory ).c_str() );
+	}
+
 	string input;
 	string currentDatabase;
 	vector< Database > dbms;
+
+	// Retrieve all of the information about existing directories
+	vector< string > directoryItems;
+	if( read_directory( currentWorkingDirectory, directoryItems ) )
+	{
+		for( unsigned int i = 0; i < directoryItems.size(); i++ )
+		{
+			if(directoryItems[i] == "." || directoryItems[i] == "..")
+			{
+				directoryItems.erase(directoryItems.begin() + i);
+				i--;
+			}
+			else
+			{
+				Database tempDatabase;
+				tempDatabase.databaseName = directoryItems[i];
+
+				vector< string > tableItems;
+				Table tempTable;
+
+				if( read_directory( currentWorkingDirectory + "/" + tempDatabase.databaseName, tableItems ) )
+				{
+					for( unsigned int j = 0; j < tableItems.size(); j++ )
+					{
+						if(tableItems[j] == "." || tableItems[j] == "..")
+						{
+							tableItems.erase(tableItems.begin() + j);
+							j--;
+						}
+						else
+						{
+							tempTable.tableName = tableItems[i];
+
+							tempDatabase.databaseTable.push_back(tempTable);
+						}
+					}
+				}
+
+				dbms.push_back(tempDatabase);
+			}
+		}
+	}
 
 	bool simulationEnd = false;
 
@@ -288,29 +373,40 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 			//get dbReturn of database
 			databaseExists( dbms, dbTemp, dbReturn );
 			
-			//get table name
-			Table tblTemp;
-			tblTemp.tableName = getNextWord( input );
-
-			//check that table exists
-			if( !(dbms[ dbReturn ].tableExists( tblTemp.tableName, tblReturn )) )
+			// make sure the input does not specify multiple tables 
+			size_t pos = input.find(" (");
+			string temp = input.substr(0, pos);
+			if( temp.find(" ") != string::npos )
 			{
-				//check that table attributes are not the same
-				tblTemp.tableCreate( currentWorkingDirectory, currentDatabase, tblTemp.tableName, input, attrError );
-				if( !attrError  )
-				{
-					//if it doesnt then push table onto database	
-					dbms[ dbReturn ].databaseTable.push_back( tblTemp );
-				}
+				errorExists = true;
+				errorType = ERROR_INCORRECT_COMMAND;
+				errorContainerName = originalInput;
 			}
 			else
 			{
-				//if it does than handle error
-			 	errorExists = true;
-			 	errorType = ERROR_TBL_EXISTS;
-			 	errorContainerName = tblTemp.tableName;	
-			}
+				//get table name 
+				Table tblTemp;
+				tblTemp.tableName = getNextWord( input );
 
+				//check that table exists
+				if( !(dbms[ dbReturn ].tableExists( tblTemp.tableName, tblReturn )) )
+				{
+					//check that table attributes are not the same
+					tblTemp.tableCreate( currentWorkingDirectory, currentDatabase, tblTemp.tableName, input, attrError );
+					if( !attrError  )
+					{
+						//if it doesnt then push table onto database	
+						dbms[ dbReturn ].databaseTable.push_back( tblTemp );
+					}
+				}
+				else
+				{
+					//if it does than handle error
+				 	errorExists = true;
+				 	errorType = ERROR_TBL_EXISTS;
+				 	errorContainerName = tblTemp.tableName;	
+				}
+			}
 		}
 		else
 		{
@@ -343,7 +439,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 				removeDatabase( dbms, dbReturn );
 
 				//remove directory
-				dbTemp.databaseDrop();
+				dbTemp.databaseDrop(currentWorkingDirectory);
 			}
 
 
@@ -372,7 +468,7 @@ bool startEvent( string input, vector< Database> &dbms, string currentWorkingDir
 				removeTable( dbms, dbReturn, tblReturn );
 
 				//remove table/file
-				tblTemp.tableDrop( currentDatabase );
+				tblTemp.tableDrop(currentWorkingDirectory, currentDatabase );
 			}
 		}
 		else
@@ -549,6 +645,27 @@ void handleError( int errorType, string commandError, string errorContainerName 
 	}
 }
 
+
+/**
+ * @brief convertToLC
+ *
+ * @details converts a string into lowercase
+ *          
+ * @pre Assumes stirng has uppercase values
+ *
+ * @post String is now in lowercase
+ *
+ * @par Algorithm 
+ *      parse through the string and converts toLower using string lib function
+ * 
+ * @exception None
+ *
+ * @param [in] string &input
+ *
+ * @return None
+ *
+ * @note None
+ */
 void convertToLC( string &input )
 {
 	int size = input.size();

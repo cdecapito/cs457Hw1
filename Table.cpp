@@ -1,3 +1,15 @@
+// Program Information ////////////////////////////////////////////////////////
+/**
+ * @file Table.cpp
+ * 
+ * @brief Implementation file for Table class
+ * 
+ * @author Carli Decapito, Sanya Gupta, Eugene Nelson
+ *
+ * @details Implements all member methods of the Table class
+ *
+ * @Note Requires Table.h
+ */
 #include <iostream>
 #include <vector>
 #include <string>
@@ -10,9 +22,27 @@
 
 using namespace std;
 
+// Precompiler directives /////////////////////////////////////////////////////
 #ifndef TABLE_CPP
 #define TABLE_CPP
 
+/**
+ * @brief getCommaCount
+ *
+ * @details counts how many commas are in the passed in string
+ *          
+ * @pre assumes there's a string that has commas in 
+ *
+ * @post returns the number of commas in given string
+ *
+ * @par Algorithm for loop that parses the the given string to check for commas
+ *      
+ * @param [in] string str
+ *
+ * @return int (the number of commas)
+ *
+ * @note None
+ */
 int getCommaCount( string str )
 {
 	int length = str.length();
@@ -27,6 +57,24 @@ int getCommaCount( string str )
 	}
 	return count;
 }
+
+/**
+ * @brief getNextWord
+ *
+ * @details Used to find the action word (command)
+ *          
+ * @pre assumes there is more to the string and erases
+ *
+ * @post action word is found and returned
+ *
+ * @par Algorithm parses through the string and erases till next space
+ *
+ * @param [in] string &input
+ *      
+ * @return string (the next word)
+ *
+ * @note None
+ */
 string getNextWord( string &input )
 {
 
@@ -39,6 +87,24 @@ string getNextWord( string &input )
 	return actionType;	
 }
 
+
+/**
+ * @brief removeLeadingWS
+ *
+ * @details Used to find the action word (command)
+ *          
+ * @pre assumes there is a string with potential whitespace in front of the word
+ *
+ * @post leading white space infront of a string is removed
+ *
+ * @par Algorithm parses through the string and moves index upto white space and deletes it through erase function
+ *
+ * @param [in] string &input
+ *      
+ * @return none
+ *
+ * @note None
+ */
 void removeLeadingWS( string &input )
 {
 	int index = 0;
@@ -50,6 +116,26 @@ void removeLeadingWS( string &input )
 	input.erase( 0, index );
 }
 
+
+/**
+ * @brief attributeNameExists
+ *
+ * @details checks vector of tables to see if attribute name already exists
+ *          
+ * @pre assumes there's an vector of attributes to search through
+ *
+ * @post action word is found and returned
+ *
+ * @par Algorithm parses through the string and erases till next space
+ *
+ * @param [in] vector <Attribute> attributeTable
+ * 
+ * @param [in] Attribute attr - the attribute stored locally
+ *      
+ * @return bool true if already in table, else false
+ *
+ * @note None
+ */
 bool attributeNameExists( vector< Attribute > attributeTable, Attribute attr )
 {
 	int size = attributeTable.size();
@@ -64,15 +150,57 @@ bool attributeNameExists( vector< Attribute > attributeTable, Attribute attr )
 }
 
 
+/**
+ * @brief table default constructor
+ *
+ * @details table class default constructor - needs to be implemented
+ *
+ * @note None
+ */
 Table::Table()
 {
 
 }
+
+
+/**
+ * @brief Table default destructor
+ *
+ * @detials Table class default destructor - needs to be implmented
+ *
+ * @notes Tables should be deleted
+*/
 Table::~Table()
 {
 
 }
 
+
+/**
+ * @brief tableCreate
+ *
+ * @details creates table and stores in disk otherwise handles errors too
+ *          
+ * @pre assumes there is more to the string and erases
+ *
+ * @post action word is found and returned
+ *
+ * @par Algorithm checks if table already exists in current directory, if not, then creates table in current database & directory
+ *
+ * @param [in] string currentWorkingDirectory
+ *
+ * @param [in] string currentDatabase
+ *
+ * @param [in] string tblName
+ *
+ * @param [in] string input
+ *
+ * @param [in] bool &errorCode
+ *      
+ * @return  none
+ *
+ * @note None
+ */
 void Table::tableCreate( string currentWorkingDirectory, string currentDatabase, string tblName, string input, bool &errorCode )
 {
 	vector< Attribute> tblAttributes;
@@ -152,12 +280,53 @@ void Table::tableCreate( string currentWorkingDirectory, string currentDatabase,
 
 
 
-void Table::tableDrop( string dbName )
+/**
+ * @brief tableDrop
+ *
+ * @details Used to delete a table from current database
+ *          
+ * @pre assumes table exists in current database
+ *
+ * @post table no longer exists
+ *
+ * @par Algorithm uses sys library to run linux terminal commands to delete table
+ *
+ * @param [in] string dbName - the database currently in 
+ *      
+ * @return None
+ *
+ * @note None
+ */
+void Table::tableDrop( string currentWorkingDirectory, string dbName )
 {
-	system( ( "rm " +  dbName + "/" + tableName ).c_str() ) ;
+	system( ( "rm " + currentWorkingDirectory + "/" + dbName + "/" + tableName ).c_str() ) ;
 	cout << "-- Table " << tableName << " deleted." << endl;
 }
 
+
+/**
+ * @brief tableAlter method 
+ *
+ * @details used to add attributes to a specified table
+ *          
+ * @pre assumes table exists and attribute name and type are specified
+ *
+ * @post attribute(s) are added to the table
+ *
+ * @par Algorithm checks if table exists in current directory, and if so, adds the parsed attribute name & type
+ *
+ * @param [in] string currentWorkingDirectory
+ *
+ * @param [in] string currentDatabase
+ *
+ * @param [in] string input
+ *
+ * @param [in] bool &errorCode
+ *      
+ * @return none
+ *
+ * @note None
+ */
 void Table::tableAlter( string currentWorkingDirectory, string currentDatabase, string input, bool &errorCode )
 {
 	vector < Attribute > tableAttributes;
@@ -244,6 +413,25 @@ void Table::tableAlter( string currentWorkingDirectory, string currentDatabase, 
 }
 
 
+/**
+ * @brief tableSelect method
+ *
+ * @details  displays the attributes from queried table
+ *          
+ * @pre assumes table specified is in the current directory
+ *
+ * @post attributes stored in the directory are displayed 
+ *
+ * @par Algorithm goes to the filepath, and displays info from the file
+ *
+ * @param [in] string currentWorkingDirectory
+ *
+ * @param [in] string currentDatabase
+ *   
+ * @return None
+ *
+ * @note None
+ */
 void Table::tableSelect( string currentWorkingDirectory, string currentDatabase )
 {
 	vector< string > attributes;
@@ -270,5 +458,5 @@ void Table::tableSelect( string currentWorkingDirectory, string currentDatabase 
 	}
 	cout << endl;
 }
-
+// Terminating precompiler directives  ////////////////////////////////////////
 #endif
